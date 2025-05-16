@@ -26,10 +26,11 @@ class neutralizationEnum(str, Enum):
 
 class universeEnum(str, Enum):
     top3000 = 'TOP3000'
-    top2000 = 'TOP2000'
     top1000 = 'TOP1000'
     top500 = 'TOP500'
     top200 = 'TOP200'
+    topsp500 = 'TOPSP500'
+
 
 class Alpha(BaseModel):
     code: str

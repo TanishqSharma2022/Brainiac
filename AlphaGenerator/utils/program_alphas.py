@@ -8,6 +8,9 @@ import openai
 import random
 import asyncio
 
+from google import  genai
+from google.genai import types
+
 # Initialize LlamaParse and Groq
 GroqAPIKeys = os.environ["DEEPINFRA_API_KEYS"].split(",")
 
@@ -18,6 +21,11 @@ llms = [
     )
     for k in GroqAPIKeys
 ]
+
+# Set your Gemini API Key
+GOOGLE_API_KEY =os.environ["GOOGLE_API_KEY"]
+
+clients = genai.Client(api_key=GOOGLE_API_KEY)
 
 # Assuming the initialization of LlamaParse, Groq, and LLMs is done similarly as in distill_alphas.py
 
@@ -95,7 +103,7 @@ def find_datasets_from_alphas(alphas):
     #     appended_alphas.append(alphak)
     # return appended_alphas
     return alphas
-
+#
 
 def generate_code_prompt(alphas, max_tokens=50000):
     with open(
@@ -140,26 +148,47 @@ def create_code_from_alphas(alphas):
     appended_alphas = []
     for alpha in alphas:
         prompt = generate_code_prompt([alpha])
-        res = random.choice(llms).chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="mistralai/Mixtral-8x22B-Instruct-v0.1",
-            response_format={"type": "json_object"},
-            tool_choice="auto",
-            temperature=0.13,
-            max_tokens=1000,
+        # res = random.choice(llms).chat.completions.create(
+        #     messages=[{"role": "user", "content": prompt}],
+        #     model="mistralai/Mixtral-8x22B-Instruct-v0.1",
+        #     response_format={"type": "json_object"},
+        #     tool_choice="auto",
+        #     temperature=0.13,
+        #     max_tokens=1000,
+        # )
+
+        res = clients.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config=
+                types.GenerateContentConfig(
+                response_mime_type="application/json",
+                max_output_tokens=1000,
+                temperature=0.13
+            )
         )
-        json_text = res.choices[0].message.content
+        json_text = res.text
         substring = json_text[json_text.find("{") : json_text.rfind("}") + 1]
         if substring == "":
             print("Code not generated")
             continue
         print("Code Generated")
         print(substring)
+        # try:
+        #     datasets = json.loads(substring, strict=False)
+        # except:
+        #     print("Error in JSON")
+        #     continue
         try:
             datasets = json.loads(substring, strict=False)
-        except:
-            print("Error in JSON")
+            if "code" not in datasets:
+                print("JSON parsed but missing 'code':", datasets)
+                continue
+        except Exception as e:
+            print("Error in JSON parsing:", e)
+            print("Raw substring:", substring)
             continue
+
         alphak = alpha
         alphak["code"] = datasets["code"]
         appended_alphas.append(alphak)

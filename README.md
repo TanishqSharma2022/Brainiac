@@ -4,6 +4,21 @@ Welcome to **Brainiac**! Created in 2024, this project aims to streamline the ge
 
 Brainiac leverages _agentic AI technologies_ to autonomously navigate through vast amounts of financial research, crafting and optimizing financial alphas. The goal is to equip quantitative analysts and traders with a powerful tool to streamline alpha generation.
 
+
+# Usage
+
+1. Install all the required libraries with pip install -r requirements.txt
+2. Get you API Keys from LLAMACloud and Google AI Studio(GEMINI)
+3. Add your WQB credentials in Simulation/cred/credentials.json.
+4. Run the Simulation/main.py to start the server.
+5. Add the necessary strategies and research papers in the AlphaGenerator subfolders.
+6. Run the AlphaGenerator/watchdog.py.
+7. Monitor the alpha submission.
+
+
+
+
+
 ## 🌟 Key Features
 
 - **Agentic AI System**: Utilizes a cutting-edge AI framework for autonomous scraping and analysis of financial research papers, extracting actionable insights to craft financial alphas.
@@ -76,6 +91,9 @@ python3 main.py
 ```
 
 Now that this is running in the background, dump all your research PDFs into the `AlphaGenerator/ResearchPDFs` folder. Dump all text strategies into the `AlphaGenerator/Strategies` folder. Then, run `python3 watchdog.py`. This will look for changes in these 2 folders, when a new source is detected, will create alphas and send them to be backtested to the running simulation API.
+
+
+
 
 ### 📊 Results
 

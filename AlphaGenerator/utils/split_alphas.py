@@ -1,26 +1,15 @@
 import os
-import asyncio
-import pickle
 import random
-from llama_parse import LlamaParse
-from llama_index.llms.groq import Groq
-from aiohttp import ClientSession
-from llama_index.llms.deepinfra import DeepInfraLLM
-import openai
 import json
+from google import genai
+from google.genai import types
 
+# Load environment variables
+GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
 
-# Initialize LlamaParse and Groq
-GroqAPIKeys = os.environ["DEEPINFRA_API_KEYS"].split(",")
-
-llms = [
-    openai.OpenAI(
-        base_url="https://api.deepinfra.com/v1/openai",
-        api_key=k,
-    )
-    for k in GroqAPIKeys
-]
-map = {
+client = genai.Client(api_key=GOOGLE_API_KEY)
+# Neutralization category mapping
+category_map = {
     "fundamental": ["industry"],
     "analyst": ["industry"],
     "model": ["industry", "subindustry", "sector", "market"],
@@ -31,26 +20,6 @@ map = {
     "earnings": ["industry"],
     "macro": ["market", "sector", "industry"],
 }
-
-
-def generate_neutralization_prompt(alpha, max_tokens=50000):
-
-    prompt = f"""
-You are an AI assistant tasked with analyzing a financial alpha and the datasets used in it and providing ONLY and ONLY a JSON object of classifying the financial alpha into one of a few categories.
-
-Your task is to thoroughly review the alpha given deliated by [ALPHA]:
-
-[ALPHA]
-{alpha[0]}
-[ALPHA]
-
-You need to categorize it into one of the following categories, in the format {'{"category": "<category>"}'}:
-{map.keys()}
-
-Please write the JSON object ONLY below:
-"""
-
-    return prompt.strip()
 
 
 def truncate_contents(contents, max_tokens):
@@ -71,49 +40,73 @@ def truncate_contents(contents, max_tokens):
     return "\n".join(truncated_contents)
 
 
-def prune_datasets(alphas):
-    new_alphas = []
-    for alpha in alphas:
-        dts = []
-        for data in alpha["datasets"]:
-            if data["field"] in alpha["code"]:
-                dts.append(data)
-        alp = alpha
-        alp["datasets"] = dts
-    return new_alphas
+def generate_neutralization_prompt(alpha, max_tokens=50000):
+    prompt = f"""
+You are an AI assistant tasked with analyzing a financial alpha and the datasets used in it and providing ONLY and ONLY a JSON object of classifying the financial alpha into one of a few categories.
+
+Your task is to thoroughly review the alpha given delineated by [ALPHA]:
+
+[ALPHA]
+{alpha[0]}
+[ALPHA]
+
+You need to categorize it into one of the following categories, in the format {{"category": "<category>"}}:
+{list(category_map.keys())}
+
+Please write the JSON object ONLY below:
+"""
+    return prompt.strip()
 
 
 def split_alphas_neut(alphas):
     appended_alphas = []
+
     for alpha in alphas:
-        prompt = generate_neutralization_prompt([alpha])
-        res = random.choice(llms).chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="mistralai/Mistral-7B-Instruct-v0.3",
-            response_format={"type": "json_object"},
-            tool_choice="auto",
-            temperature=0.2,
-            max_tokens=1000,
-        )
-        json_text = res.choices[0].message.content
-        substring = json_text[json_text.find("{") : json_text.rfind("}") + 1]
-        datasets = json.loads(substring, strict=False)
-        print("Neutralizations classified")
-        print(substring)
-        alphak = alpha
-        alphak["neutralizations"] = map[datasets["category"]]
-        appended_alphas.append(alphak)
+        prompt = generate_neutralization_prompt([alpha["code"]])
+
+        try:
+            res = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.2,
+                    max_output_tokens=1000
+                )
+            )
+
+            json_text = res.text
+            print(res.text)
+            substring = json_text[json_text.find("{"): json_text.rfind("}") + 1]
+            datasets = json.loads(substring, strict=False)
+
+            print("Neutralizations classified")
+            print(substring)
+
+            alpha["neutralizations"] = category_map.get(datasets["category"], [])
+            appended_alphas.append(alpha)
+
+        except Exception as e:
+            print(f"Error processing alpha: {e}")
+
     return appended_alphas
 
 
 def split_alphas_region(alphas):
     new_alphas = []
     for alpha in alphas:
-        alphak = alpha
-        alphak["region"] = "CHN"
-        new_alphas.append(alphak)
+        alpha["region"] = "CHN"
+        new_alphas.append(alpha)
+    return new_alphas
 
-        # alphak = alpha
-        # alphak["region"] = "USA"
-        # new_alphas.append(alpha)
+
+def prune_datasets(alphas):
+    new_alphas = []
+    for alpha in alphas:
+        relevant_datasets = []
+        for data in alpha.get("datasets", []):
+            if data["field"] in alpha.get("code", ""):
+                relevant_datasets.append(data)
+        alpha["datasets"] = relevant_datasets
+        new_alphas.append(alpha)
     return new_alphas

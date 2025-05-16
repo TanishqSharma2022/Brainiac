@@ -5,6 +5,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import current_thread
 from schemas import DBSession, AlphaResult
+import os
+
+# os.makedirs("logging/", exist_ok=True)
 
 
 class WQSession(requests.Session):
@@ -54,6 +57,13 @@ class WQSession(requests.Session):
 
     def simulate(self, data):
         self.rows_processed = []
+
+        def sql_write_failed_alpha(row):
+            with DBSession() as session:
+                # You should replace this with your actual failed-alpha model logic
+                logging.info(f"Inserting failed alpha to DB: {row[-1][:30]}...")
+                # Example: session.add(FailedAlpha(...)) — implement your own
+                session.commit()
 
         def process_simulation(simulation):
             if self.login_expired:

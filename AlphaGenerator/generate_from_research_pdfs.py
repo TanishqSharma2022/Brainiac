@@ -101,7 +101,7 @@ async def research_main() -> None:
         alphas = await asyncio.gather(*tasks)
 
         # Output alphas to a text file
-        with open("alphas.jsonl", "w") as file:
+        with open("alphas.jsonl", "w", encoding="utf-8") as file:
             for alpha in alphas:
                 for alp in alpha:
                     file.write(str(alp).replace("'", '"') + "\n")
