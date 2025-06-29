@@ -1,0 +1,58 @@
+
+{
+  "code": "neg(log_diff(open['CHN']))"
+},
+{
+  "code": "log_diff(close) * -1"
+},{
+  "code": "multiply(normalize(subtract(1, ts_mean(returns, 5)), useStd=true), adv20, filter=true)"
+},
+{
+  "code": "normalize(group_neutralize(cap, industry), true, 0.01) * ts_rank_gmean_amean_diff(close, d) * ts_zscore(returns, d)"
+},
+{
+  "code": "
+    // Define the lookback period for calculating covariance
+    int d = 20;
+
+    // Calculate the daily returns for each stock
+    matrix returns = get_data('returns');
+
+    // Calculate the average sector return for each day
+    matrix sector_returns = group_mean(returns, get_data('sector'), 'weight');
+
+    // Calculate the covariance of each stock's return with its sector return
+    matrix stock_sector_covariance = covariance(returns, sector_returns, d);
+
+    // Calculate the deviation of each stock's return from its sector return
+    matrix deviation = subtract(returns, sector_returns);
+
+    // Normalize the deviation by the stock-sector covariance to get the signal strength
+    matrix signal = divide(deviation, stock_sector_covariance);
+
+    // Scale the signal to manage the turnover and position size
+    matrix scaled_signal = scale_down(signal, constant=0.5);
+
+    // Return the final alpha signal
+    return scaled_signal;
+  "
+},
+{
+  "code": "group_neutralize(close, industry)"
+},
+{
+  "code": "pasteurize(group_neutralize(close * (country == 'CHN'), industry))"
+},
+{
+  "code": "normalize(multiply(adv20, ts_rank(close, 10)), useStd=true)"
+},
+{
+  "delay_0_alpha": {
+    "code": "multiply(divide(close, adv20), -1)"
+  }
+},
+{
+  "delay_1_alpha": {
+    "code": "multiply(divide(ts_delay(close, 1), ts_delay(adv20, 1)), -1)"
+  }
+}

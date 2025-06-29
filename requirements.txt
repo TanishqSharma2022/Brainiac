@@ -6,3 +6,5 @@ llama_parse
 asyncio
 nest_asyncio
 aiohttp
+llama_index.llms
+google-genai
